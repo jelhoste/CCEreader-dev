@@ -640,8 +640,8 @@ body.rdr-topbar-visible #topbar{transform:translateY(0)}
   line-height:1.3;letter-spacing:.03em;
   -webkit-print-color-adjust:exact;print-color-adjust:exact;
 }
-.sec-tempo-square{transition:none}
-.sec-tempo-square.tempo-off{opacity:.15}
+.sec-tempo-square{transition:none;background:var(--tempo-on-bg,currentColor)}
+.sec-tempo-square.tempo-off{background:var(--tempo-off-bg,transparent)}
 .sym-row{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-end;margin-bottom:var(--ov-offset-sym)}
 .sym{
   font-family:var(--font-mono);font-size:var(--typo-sym-size);
@@ -1778,6 +1778,30 @@ body.rdr-hide-scaleviewers .rdr-scale-viewer{display:none!important}
           <div class="rdr-toggle" id="rdr-tog-showTempoTitles"></div>
           <span class="rdr-toggle-label">Titres tempo (clignotant)</span>
         </label>
+      </div>
+      <div id="rdr-tempo-square-settings">
+        <div class="rdr-menu-row">
+          <span class="rdr-menu-label">Durée allumé (%)</span>
+          <div class="rdr-stepper">
+            <button class="rdr-step-btn left" onclick="rdrTempoOnPctStep(-5)">−</button>
+            <input type="number" class="rdr-fi" id="rdr-menu-tempo-onpct" value="50" min="5" max="95" step="5" oninput="rdrApplyTempoOnPct(parseInt(this.value))">
+            <button class="rdr-step-btn right" onclick="rdrTempoOnPctStep(5)">+</button>
+          </div>
+          <span style="font-size:.55rem;color:var(--ink3)">le tempo ne change pas, seul le ratio allumé/éteint</span>
+        </div>
+        <div class="rdr-menu-row">
+          <span class="rdr-menu-label">Couleur allumé</span>
+          <input type="color" id="rdr-tempo-oncolor-pick" value="#cc2200" style="width:36px;height:24px;border:1px solid var(--rule2);border-radius:3px;cursor:pointer;padding:1px 2px;background:var(--ui2)" oninput="rdrApplyTempoOnColor(this.value)">
+          <button class="rdr-step-btn" onclick="rdrResetTempoOnColor()" title="Revenir à la couleur définie par section dans l'éditeur" style="font-size:.6rem;padding:0 .4rem">⟲</button>
+        </div>
+        <div class="rdr-menu-row">
+          <span class="rdr-menu-label">Couleur éteint (fond)</span>
+          <input type="color" id="rdr-tempo-offcolor-pick" value="#000000" style="width:36px;height:24px;border:1px solid var(--rule2);border-radius:3px;cursor:pointer;padding:1px 2px;background:var(--ui2)" oninput="rdrApplyTempoOffColor(this.value)">
+          <label style="display:flex;align-items:center;gap:.3rem;margin-left:.5rem;cursor:pointer">
+            <input type="checkbox" id="rdr-tempo-offcolor-transparent" onchange="rdrToggleTempoOffTransparent(this.checked)" style="width:16px;height:16px;cursor:pointer">
+            <span style="font-size:.55rem;color:var(--ink3)">Transparent</span>
+          </label>
+        </div>
       </div>
       <div class="rdr-menu-row">
         <label class="rdr-toggle-row" onclick="rdrToggleOpt('showRhythmNotation')">
@@ -16855,8 +16879,8 @@ function reflow(){
             sq.className='sec-tempo-square';
             sq.dataset.tempo=so.tempo;
             const sz=so.tempoSize||20;
-            sq.style.cssText=`display:inline-block;width:${sz}px;height:${sz}px;flex-shrink:0;
-              border-radius:2px;background:${so.tempoColor||so.color||'currentColor'}`;
+            sq.style.cssText=`display:inline-block;width:${sz}px;height:${sz}px;flex-shrink:0;border-radius:2px`;
+            sq.style.setProperty('--tempo-on-bg', prefs.tempoOnColor||so.tempoColor||so.color||'currentColor');
             if(so.tempoOffsetX||so.tempoOffsetY) sq.style.transform=`translate(${so.tempoOffsetX||0}px,${so.tempoOffsetY||0}px)`;
             sq.title=so.tempo+' BPM';
             rdrStartTempoBlink();
@@ -20001,6 +20025,7 @@ let prefs={
   showLyricsChords:true,
   showDiagBands:true, showScaleViewers:true,
   showTempoTitles:true,
+  tempoOnPct:50, tempoOnColor:'', tempoOffColor:'', tempoOffTransparent:true,
   defaultVersionLyrics:false,
   metroBars:2, metroFlashPct:20, metroColor:'#e05540',
 };
@@ -20258,16 +20283,75 @@ function rdrTempoBlinkTick(){
   const squares=document.querySelectorAll('.sec-tempo-square[data-tempo]');
   if(squares.length && _rdrMetroCtx){
     const t=_rdrMetroCtx.currentTime;
+    const onRatio=Math.max(0.05,Math.min(0.95,(prefs.tempoOnPct||50)/100));
     squares.forEach(sq=>{
       const bpm=parseFloat(sq.dataset.tempo)||120;
       const phase=(t*bpm/60)%1;
-      sq.classList.toggle('tempo-off', phase>=0.5);
+      sq.classList.toggle('tempo-off', phase>=onRatio);
     });
   }
   requestAnimationFrame(rdrTempoBlinkTick);
 }
 
-// ── Navigation Reader dans une setlist ────────────────────
+// ── Réglages du carré de tempo (durée allumé, couleurs) ────
+function rdrTempoOnPctStep(delta){
+  const inp=document.getElementById('rdr-menu-tempo-onpct');
+  if(!inp) return;
+  const v=Math.max(5,Math.min(95,(parseInt(inp.value)||50)+delta));
+  inp.value=v;
+  rdrApplyTempoOnPct(v);
+}
+function rdrApplyTempoOnPct(v){
+  prefs.tempoOnPct=Math.max(5,Math.min(95,parseInt(v)||50));
+  const inp=document.getElementById('rdr-menu-tempo-onpct');
+  if(inp) inp.value=prefs.tempoOnPct;
+  // Pas besoin de reflow : le moteur de clignotement relit prefs.tempoOnPct
+  // à chaque frame, l'effet est donc immédiat.
+}
+// Couleur "allumé" : vide = utilise la couleur définie par section dans
+// l'éditeur (comportement d'origine, inchangé) ; sinon, remplace TOUS les
+// carrés par cette couleur unique. Nécessite un reflow, car la couleur est
+// injectée au moment du rendu (une par section, pas une variable globale).
+function rdrApplyTempoOnColor(v){
+  prefs.tempoOnColor=v||'';
+  reflow();
+}
+function rdrResetTempoOnColor(){
+  prefs.tempoOnColor='';
+  const inp=document.getElementById('rdr-tempo-oncolor-pick');
+  if(inp) inp.value='#cc2200';
+  reflow();
+}
+// Couleur "éteint" (fond) : appliquée via une variable CSS globale, donc
+// aucun reflow nécessaire — l'effet est immédiat sur tous les carrés,
+// allumés ou non.
+function rdrApplyTempoOffColor(v){
+  prefs.tempoOffColor=v||'';
+  prefs.tempoOffTransparent=false;
+  const chk=document.getElementById('rdr-tempo-offcolor-transparent');
+  if(chk) chk.checked=false;
+  document.documentElement.style.setProperty('--tempo-off-bg', v||'transparent');
+}
+function rdrToggleTempoOffTransparent(checked){
+  prefs.tempoOffTransparent=checked;
+  if(checked){
+    document.documentElement.style.setProperty('--tempo-off-bg','transparent');
+  } else {
+    const c=prefs.tempoOffColor||document.getElementById('rdr-tempo-offcolor-pick')?.value||'#000000';
+    document.documentElement.style.setProperty('--tempo-off-bg', c);
+  }
+}
+function rdrSyncTempoSquareSettings(){
+  const pctInp=document.getElementById('rdr-menu-tempo-onpct');
+  if(pctInp) pctInp.value=prefs.tempoOnPct||50;
+  const onInp=document.getElementById('rdr-tempo-oncolor-pick');
+  if(onInp) onInp.value=prefs.tempoOnColor||'#cc2200';
+  const offInp=document.getElementById('rdr-tempo-offcolor-pick');
+  if(offInp) offInp.value=prefs.tempoOffColor||'#000000';
+  const offChk=document.getElementById('rdr-tempo-offcolor-transparent');
+  if(offChk) offChk.checked=prefs.tempoOffTransparent!==false;
+  document.documentElement.style.setProperty('--tempo-off-bg', (prefs.tempoOffTransparent!==false)?'transparent':(prefs.tempoOffColor||'#000000'));
+}
 let _rdrSetlist=null;     // setlist actuellement ouverte en lecture
 let _rdrTrackIdx=0;       // index du morceau courant
 let _rdrSetlistLocked=false; // verrou ordre + transpositions (déverrouillé par défaut)
@@ -20580,6 +20664,7 @@ function rdrSyncMenu(){
   rdrSyncToggles();
   rdrSyncTransposeUI();
   rdrSyncMetro();
+  rdrSyncTempoSquareSettings();
   rdrSyncLockBtn();
   rdrRenderTracklist();
   rdrSyncChordsToggle();
