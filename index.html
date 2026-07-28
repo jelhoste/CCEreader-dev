@@ -20457,7 +20457,7 @@ function _rdrCardPointerDown(e,i,card){
   if(_rdrSetlistLocked) return;
   if(e.target.closest('.rdr-sle-reorder')) return; // pas sur les flèches
   if(e.pointerType==='mouse' && e.button!==0) return;
-  _rdrDrag={idx:i, card, armed:false, startX:e.clientX, startY:e.clientY, dropTarget:null, timer:null};
+  _rdrDrag={idx:i, card, armed:false, startX:e.clientX, startY:e.clientY, dropTarget:null, timer:null, pointerId:e.pointerId};
   _rdrDrag.timer=setTimeout(()=>_rdrArmDrag(),RDR_DRAG_HOLD_MS);
   card.addEventListener('pointermove',_rdrCardPointerMove);
   card.addEventListener('pointerup',_rdrCardPointerUp);
@@ -20469,6 +20469,13 @@ function _rdrArmDrag(){
   _rdrDrag.card.classList.add('rdr-sle-dragging');
   _rdrDrag.card.style.touchAction='none';
   _rdrDrag.card.style.zIndex='10';
+  // Capture le pointeur SEULEMENT maintenant (pas dès pointerdown) : avant
+  // l'activation, on laisse le défilement natif fonctionner normalement.
+  // Une fois armé, ça garantit que les événements move/up continuent
+  // d'arriver ici même si le doigt sort de la zone d'origine de la carte —
+  // sans ça, certains navigateurs annulent le geste dès que le doigt bouge,
+  // ce qui donnait l'impression d'un relâchement immédiat.
+  try{ _rdrDrag.card.setPointerCapture(_rdrDrag.pointerId); }catch(err){}
   if(navigator.vibrate){ try{ navigator.vibrate(15); }catch(err){} }
 }
 function _rdrCardPointerMove(e){
@@ -20523,6 +20530,7 @@ function _rdrFindDropTarget(x,y){
 }
 function _rdrCleanupDrag(){
   if(_rdrDrag){
+    if(_rdrDrag.armed){ try{ _rdrDrag.card.releasePointerCapture(_rdrDrag.pointerId); }catch(err){} }
     _rdrDrag.card.removeEventListener('pointermove',_rdrCardPointerMove);
     _rdrDrag.card.removeEventListener('pointerup',_rdrCardPointerUp);
     _rdrDrag.card.removeEventListener('pointercancel',_rdrCardPointerUp);
@@ -20558,7 +20566,8 @@ function rdrRenderSetlistEditCards(){
       break-inside:avoid;-webkit-column-break-inside:avoid;
       border:1px solid ${isCurrent?'var(--accent)':'var(--rule)'};border-radius:var(--r);
       background:${isCurrent?'color-mix(in srgb,var(--accent) 12%,var(--ui))':'var(--ui)'};
-      cursor:pointer;min-height:44px;box-sizing:border-box;position:relative`;
+      cursor:pointer;min-height:44px;box-sizing:border-box;position:relative;
+      -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation`;
     const transp=track.data?.state?.transposeDisplay||0;
     const transpBadge=transp?`<span style="font-family:var(--font-mono);font-size:.55rem;color:var(--accent);
       border:1px solid var(--accent);border-radius:3px;padding:.05rem .3rem;flex-shrink:0" title="Transposition enregistrée">${transp>0?'+':''}${transp}</span>`:'';
@@ -20566,7 +20575,23 @@ function rdrRenderSetlistEditCards(){
       <span style="font-family:var(--font-mono);font-size:.66rem;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${track.title||'Sans titre'}</span>
       ${transpBadge}`;
     card.addEventListener('click',e=>{ if(e.target.closest('.rdr-sle-reorder')) return; if(_rdrCardDragJustFired) return; rdrGoToTrack(i); closeSetlistEditModal(); });
-    card.addEventListener('pointerdown',e=>_rdrCardPointerDown(e,i,card));
+    card.addEventListener('contextmenu',e=>e.preventDefault());
+    // Poignée dédiée pour le glisser (à gauche) : touch-action:none fixé dès
+    // sa création, pas ajouté après coup — certains navigateurs ignorent un
+    // changement de touch-action fait en cours de geste, ce qui empêchait le
+    // déplacement même une fois le glisser "armé". En partant d'une poignée
+    // qui a toujours eu ce réglage, le navigateur ne tente jamais de gérer
+    // le geste comme un défilement dès le premier contact sur cette zone.
+    const handle=document.createElement('div');
+    handle.className='rdr-sle-handle';
+    handle.textContent='⠿';
+    handle.style.cssText=`flex-shrink:0;font-size:1.1rem;line-height:1;color:var(--ink3);
+      padding:.3rem .4rem;cursor:grab;touch-action:none;
+      -webkit-touch-callout:none;-webkit-user-select:none;user-select:none`;
+    handle.title='Maintenir pour réordonner';
+    handle.addEventListener('pointerdown',e=>{ e.stopPropagation(); _rdrCardPointerDown(e,i,card); });
+    handle.addEventListener('contextmenu',e=>e.preventDefault());
+    card.insertBefore(handle,card.firstChild);
     const reorderWrap=document.createElement('div');
     reorderWrap.className='rdr-sle-reorder';
     reorderWrap.style.cssText='display:flex;flex-direction:row;gap:4px;flex-shrink:0';
