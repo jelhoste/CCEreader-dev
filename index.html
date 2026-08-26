@@ -1777,6 +1777,13 @@ body.rdr-hide-scaleviewers .rdr-scale-viewer{display:none!important}
           <div class="rdr-toggle" id="rdr-tog-showAnnotations"></div>
           <span class="rdr-toggle-label">Annotations</span>
         </label>
+        <div class="rdr-menu-row" title="Cohérent : la mise en page est identique sur tous les appareils (recommandé pour une setlist partagée). Identique à l'éditeur : reproduit exactement le rendu vu dans l'éditeur SUR CET APPAREIL — utile quand on règle et qu'on lit sur le même écran.">
+          <span class="rdr-menu-label">Mode d'affichage</span>
+          <select class="rdr-fi" id="rdr-display-mode" onchange="rdrSetDisplayMode(this.value)">
+            <option value="consistent">Cohérent (tous appareils)</option>
+            <option value="matchEditor">Identique à l'éditeur (cet appareil)</option>
+          </select>
+        </div>
         <label class="rdr-toggle-row" onclick="rdrToggleOpt('showSections')">
           <div class="rdr-toggle" id="rdr-tog-showSections"></div>
           <span class="rdr-toggle-label">Sections</span>
@@ -4148,18 +4155,23 @@ function computePPM(){
   if(_printMode){
     // Mode impression : 96dpi physique = 96/25.4 px/mm
     pxPerMm=96/25.4; // = 3.7795
+  } else if(prefs.displayMode==='matchEditor'){
+    // Reproduit EXACTEMENT le calcul de l'Éditeur (adaptatif à la largeur
+    // réelle de la fenêtre, borné entre 1.5 et 3.8) — pertinent quand on
+    // règle le canevas et qu'on lit sur le MÊME appareil : le Reader
+    // reproduit alors pixel pour pixel ce que l'Éditeur affichait au
+    // moment du réglage, puisque c'est la même formule sur le même écran.
+    const ca=document.getElementById('canvas-area');
+    const vw=(ca?ca.clientWidth:window.innerWidth)-80;
+    const [w]=FORMATS[currentFmt];
+    pxPerMm=Math.min(3.8,Math.max(1.5,vw/w));
   } else {
-    // Échelle FIXE pour le calcul de la mise en page (indépendante de
-    // l'appareil) — la même mise en page (mêmes sauts de ligne/page) doit
-    // apparaître sur tous les écrans ; seul le zoom visuel (voir
-    // rdrScalePages) s'adapte ensuite à la taille réelle de l'écran.
-    // Avant ce correctif, ce facteur dépendait de la largeur de la fenêtre
-    // (borné entre 1.5 et 3.8) : sur un écran étroit, il tombait plus bas,
-    // et les éléments de mise en page définis en pixels fixes (hauteur de
-    // ligne, etc.) prenaient alors proportionnellement plus de place que
-    // prévu, faisant parfois déborder une ligne sur une page en trop —
-    // uniquement sur cet appareil. 3.8 correspond au plafond déjà utilisé
-    // pour les écrans larges (l'expérience desktop qui fonctionnait déjà).
+    // Mode "cohérent" (par défaut) — échelle FIXE pour le calcul de la mise
+    // en page (indépendante de l'appareil) — la même mise en page (mêmes
+    // sauts de ligne/page) doit apparaître sur tous les écrans ; seul le
+    // zoom visuel (voir rdrScalePages) s'adapte ensuite à la taille réelle
+    // de l'écran. Utile quand une même setlist est partagée entre
+    // plusieurs appareils différents (pagination jamais surprise).
     pxPerMm=3.8;
   }
 }
@@ -20172,6 +20184,7 @@ function pasteMeasure(){}
 // ════ READER SYSTEM (préfixe rdr-, isolé du CCE) ═══════════
 let prefs={
   zoom:1.0, nightMode:false,
+  displayMode:'consistent', // 'consistent' (échelle fixe, pagination stable entre appareils) | 'matchEditor' (identique à l'Éditeur sur ce même appareil)
   showAnnotations:true, showSections:true,
   showRhythmNotation:true, showOtherNotation:false,
   showNotationTreble:true, showNotationBass:true, showNotationDrums:true,
@@ -20201,6 +20214,12 @@ function rdrSyncTopbarToggles(){
   document.getElementById('tb-scaleband-toggle')?.classList.toggle('on', !!prefs.showScaleViewers);
 }
 
+function rdrSetDisplayMode(mode){
+  prefs.displayMode=(mode==='matchEditor')?'matchEditor':'consistent';
+  const sel=document.getElementById('rdr-display-mode');
+  if(sel) sel.value=prefs.displayMode;
+  reflow();
+}
 function rdrToggleOpt(key){
   if(key==='nightMode'){
     prefs.nightMode=!prefs.nightMode;
@@ -20232,6 +20251,8 @@ function rdrToggleOpt(key){
 }
 
 function rdrSyncToggles(){
+  const dmSel=document.getElementById('rdr-display-mode');
+  if(dmSel) dmSel.value=prefs.displayMode||'consistent';
   Object.keys(prefs).forEach(key=>{
     const tog=document.getElementById('rdr-tog-'+key);
     if(tog) tog.classList.toggle('on', !!prefs[key]);
@@ -20658,6 +20679,7 @@ function _rdrCardPointerUp(e){
       // rien à écraser en local tant qu'elle n'a jamais été sauvegardée.
       if(_rdrSetlist.id){
         _rdrSetlist.savedAt=Date.now();
+        rdrSyncPrefsIntoSetlist();
         try{ localStorage.setItem(SETLIST_PREFIX+_rdrSetlist.id, JSON.stringify(_rdrSetlist)); }catch(err){}
       }
     }
@@ -21038,6 +21060,21 @@ function rdrOpenSetlistForReading(setlist){
   }
   _rdrSetlist=setlist;
   _rdrTrackIdx=0;
+  // Préconfiguration Reader embarquée dans la setlist (voir l'Éditeur,
+  // bouton "⚙ Réglages Reader" dans l'éditeur de setlist) — chargée UNE
+  // SEULE FOIS ici, à l'ouverture de la setlist, jamais lors des
+  // changements de morceau suivants (rdrGoToTrack ne rappelle pas cette
+  // fonction). L'utilisateur reste ensuite libre de tout changer depuis
+  // son propre menu, sans que ça se réinitialise tant qu'une NOUVELLE
+  // setlist n'est pas ouverte.
+  if(setlist.readerPrefs){
+    Object.assign(prefs, setlist.readerPrefs);
+    rdrSyncToggles();
+    rdrSyncMetro();
+    rdrSyncTempoSquareSettings();
+    const dmSel=document.getElementById('rdr-display-mode');
+    if(dmSel) dmSel.value=prefs.displayMode||'consistent';
+  }
   rdrHideLoadScreen();
   rdrGoToTrack(0);
 }
@@ -21141,7 +21178,17 @@ function rdrSyncMenu(){
 function rdrExportCurrentSetlist(){
   if(!_rdrSetlist) return;
   rdrSyncCurrentTrackAdjustments();
+  rdrSyncPrefsIntoSetlist();
   _doSetlistExport(_rdrSetlist);
+}
+// Reprend un instantané des préférences ACTUELLEMENT actives (celles que
+// l'utilisateur voit dans son menu à cet instant, qu'elles viennent de la
+// préconfiguration de la setlist ou de ses propres réglages faits depuis)
+// et les range dans la setlist — pour qu'un export ou un enregistrement
+// garde bien ses choix, pas seulement ceux préconfigurés depuis l'Éditeur.
+function rdrSyncPrefsIntoSetlist(){
+  if(!_rdrSetlist) return;
+  _rdrSetlist.readerPrefs={...prefs};
 }
 // Bascule l'affichage de la piste d'accords pour TOUTE la setlist (réglage
 // global, pas propre à chaque morceau) — visible uniquement quand la version
