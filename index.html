@@ -6327,11 +6327,36 @@ function setlistSave(){
 }
 function setlistExport(){ if(!_setlistCurrent) return; _setlistCurrent.name=document.getElementById('setlist-name').value.trim()||'Ma setlist'; _doSetlistExport(_setlistCurrent); }
 function setlistExportById(key){ try{ _doSetlistExport(JSON.parse(localStorage.getItem(key))); }catch(e){ alert('Erreur : '+e.message); } }
-function _doSetlistExport(sl){
-  const blob=new Blob([JSON.stringify(sl,null,2)],{type:'application/json'});
+async function _doSetlistExport(sl){
+  const defaultName=(sl.name||'setlist').replace(/\s+/g,'-').toLowerCase()+'.cce-setlist.json';
+  const json=JSON.stringify(sl,null,2);
+  // File System Access API : vraie boîte "Enregistrer sous", nom ET
+  // emplacement au choix — disponible sur Chrome/Edge, pas Firefox/Safari.
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName:defaultName,
+        types:[{description:'Setlist CCE',accept:{'application/json':['.json']}}]
+      });
+      const writable=await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      _showSaveStatus('✓ Setlist exportée');
+      return;
+    }catch(err){
+      if(err.name==='AbortError') return; // annulé par l'utilisateur, rien à faire
+      // Autre erreur : on retombe sur la méthode classique ci-dessous.
+    }
+  }
+  // Repli (Firefox, Safari…) : au moins le choix du NOM via une invite —
+  // l'emplacement reste celui du téléchargement par défaut du navigateur,
+  // faute d'équivalent standard partout.
+  const name=prompt('Nom du fichier à exporter :',defaultName);
+  if(name===null) return; // annulé
+  const blob=new Blob([json],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url; a.download=(sl.name||'setlist').replace(/\s+/g,'-').toLowerCase()+'.cce-setlist.json';
+  a.href=url; a.download=name.toLowerCase().endsWith('.json')?name:name+'.json';
   a.click(); URL.revokeObjectURL(url); _showSaveStatus('✓ Setlist exportée');
 }
 function setlistDelete(key){
