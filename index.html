@@ -19456,6 +19456,28 @@ function _restoreData(data){
   // personnalisé sur ce morceau hériterait silencieusement de la valeur
   // laissée par le morceau précédemment ouvert dans la même session.
   { const R0=document.documentElement; SAVE_TYPO_KEYS.forEach(k=>R0.style.removeProperty(k)); }
+  // Remet ces réglages à leur valeur par défaut AVANT d'appliquer ceux du
+  // morceau chargé — même principe que pour SAVE_TYPO_KEYS ci-dessus, mais
+  // pour ce groupe de réglages séparé (alignement, largeurs, mesures par
+  // ligne, numérotation, échelle...), qui n'était pas couvert par ce
+  // premier correctif. Sans ça, un réglage jamais personnalisé sur ce
+  // morceau (ou absent d'un ancien fichier) continue silencieusement
+  // d'utiliser la valeur laissée par le morceau précédemment ouvert dans
+  // la même session — ce qui peut notamment changer le nombre de mesures
+  // par ligne d'un morceau à l'autre dans une setlist.
+  {
+    document.getElementById('scale-sl').value='1'; applyScale('1');
+    document.getElementById('rowh-sl').value='64'; applyRowH('64');
+    document.getElementById('cpad-sl').value='2'; applyChordPad('2');
+    document.getElementById('measPerRow').value='4';
+    document.getElementById('showNumbers').value='first';
+    const sn2d=document.getElementById('showNumbers2'); if(sn2d) sn2d.value='first';
+    const mnd=document.getElementById('meas-num-start'); if(mnd) mnd.value='1';
+    PAGE_PAD_MM=7; const ppd=document.getElementById('fmt-pad-mm'); if(ppd) ppd.value='7';
+    alignMode='uniform'; const amd=document.getElementById('am-uniform'); if(amd) amd.checked=true;
+    widthFactors={1:1.0, 2:1.0, 3:1.0, 4:2.8, 5:3.5};
+    [1,2,3,4,5].forEach(n=>{const el=document.getElementById('wf'+n);if(el)el.value=widthFactors[n]});
+  }
   if(data.typo){ const R=document.documentElement; Object.entries(data.typo).forEach(([k,v])=>{if(v)R.style.setProperty(k,v)}); }
   if(data.alignMode){ alignMode=data.alignMode; document.getElementById('am-'+alignMode).checked=true; }
   if(data.widthFactors){ widthFactors=data.widthFactors; [1,2,3,4,5].forEach(n=>{const el=document.getElementById('wf'+n);if(el)el.value=widthFactors[n]}); }
