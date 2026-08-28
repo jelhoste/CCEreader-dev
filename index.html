@@ -16574,19 +16574,50 @@ function _computeScaleViewersH(){
   return Math.round(total);
 }
 
+// Mesure la hauteur réelle de l'en-tête du morceau ACTUELLEMENT chargé, en
+// construisant une copie hors-écran (mais bien mise en page — jamais
+// display:none, qui donnerait une hauteur de 0) plutôt que de lire un
+// ancien .page-header resté dans le canevas depuis le rendu précédent
+// (potentiellement celui d'un AUTRE morceau, avec un titre/des tags d'une
+// tout autre longueur) — c'était la source d'un mauvais calcul de place
+// disponible sur la première page, qui pouvait ensuite décaler la
+// répartition du contenu sur les pages suivantes.
+function _computePageHeaderH(wPx, padPx){
+  const s=state.song||{};
+  const hdr=document.createElement('div');
+  hdr.className='page-header';
+  hdr.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+      <div class="ph-title">${s.title||'Sans titre'}</div>
+      ${(s.composer||s.arranger)?`
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.1rem;flex-shrink:0">
+        ${s.composer?`<span class="ph-sub ph-composer" style="margin-top:0">${s.composer}</span>`:''}
+        ${s.arranger?`<span class="ph-sub ph-arranger" style="margin-top:0;font-style:italic">${s.arranger}</span>`:''}
+      </div>`:''}
+    </div>
+    <div class="ph-tags">
+      ${s.key?`<span class="ph-tag">Ton. <b>${s.key}</b></span>`:''}
+      ${s.tempo?`<span class="ph-tag">BPM <b>${s.tempo}</b></span>`:''}
+      ${s.style?`<span class="ph-tag"><b>${s.style}</b></span>`:''}
+    </div>`;
+  const wrap=document.createElement('div');
+  wrap.style.cssText=`position:absolute;visibility:hidden;pointer-events:none;left:-99999px;top:0;width:${Math.max(1,wPx-2*padPx)}px`;
+  wrap.appendChild(hdr);
+  document.body.appendChild(wrap);
+  const h=hdr.offsetHeight;
+  document.body.removeChild(wrap);
+  return h;
+}
 function buildPages(rows){
-  const [,hMm]=FORMATS[currentFmt];
+  const [wMm,hMm]=FORMATS[currentFmt];
   computePPM();
   const hPx=mm(hMm), padPx=mm(PAGE_PAD_MM);
   const SAFETY=mm(1); // marge sécurité réduite (était 14mm) — à ajuster si coupure à l'impression
   const rowH=getRowH();
 
   // Hauteur header = titre/meta + visualiseurs de gammes + bandeau diagrammes
-  const existingHdr=document.querySelector('.page-header');
   const scaleH=_computeScaleViewersH();
-  // Ajouter une marge sur le header pour compenser les différences écran/impression
-  const domHdrPx=existingHdr ? existingHdr.offsetHeight : mm(38); // marge +3mm supprimée
-  const hdrPx=domHdrPx;
+  const hdrPx=_computePageHeaderH(mm(wMm),padPx);
 
   const pages=[];
   let cur=[],curH=0,isFirst=true;
