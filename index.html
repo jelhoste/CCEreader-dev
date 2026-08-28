@@ -4876,30 +4876,48 @@ function _syncMsoFitBtn(){
   }
 }
 
+// Compresse horizontalement chaque accord qui dépasse sa case, dans le
+// périmètre donné (document entier, ou une seule page) — factorisé pour
+// être appelable soit globalement (chargement initial), soit juste sur la
+// page qui vient de devenir visible (voir rdrShowPage), pour que chaque
+// page reçoive un calcul fiable au moment précis où elle s'affiche,
+// plutôt qu'un calcul unique fait une fois pour toutes les pages en même
+// temps pendant le chargement du morceau.
+function _fitChordsInScope(scopeEl){
+  scopeEl.querySelectorAll('.chord-cell').forEach(cell=>{
+    const mi=parseInt(cell.dataset.mi);
+    const m=!isNaN(mi)?state.measures[mi]:null;
+    // Résolution : override mesure > global
+    const fit=(m&&m.fitChords!=null)?m.fitChords:_fitChords;
+    const ct=cell.querySelector('.chord-text');
+    if(!ct) return;
+    // Reset d'abord pour mesurer la taille naturelle
+    ct.style.setProperty('--chord-fit-x','1');
+    if(!fit) return;
+    const cellW=cell.getBoundingClientRect().width;
+    const textW=ct.getBoundingClientRect().width;
+    if(cellW>0 && textW>cellW){
+      const scale=Math.max(0.3, cellW/textW);
+      ct.style.setProperty('--chord-fit-x', scale.toFixed(4));
+    }
+  });
+}
 function applyFitChords(){
   // Applique scaleX sur chaque chord-text qui dépasse son chord-cell
   return new Promise(resolve=>{
     requestAnimationFrame(()=>{
-      document.querySelectorAll('.chord-cell').forEach(cell=>{
-        const mi=parseInt(cell.dataset.mi);
-        const m=!isNaN(mi)?state.measures[mi]:null;
-        // Résolution : override mesure > global
-        const fit=(m&&m.fitChords!=null)?m.fitChords:_fitChords;
-        const ct=cell.querySelector('.chord-text');
-        if(!ct) return;
-        // Reset d'abord pour mesurer la taille naturelle
-        ct.style.setProperty('--chord-fit-x','1');
-        if(!fit) return;
-        const cellW=cell.getBoundingClientRect().width;
-        const textW=ct.getBoundingClientRect().width;
-        if(cellW>0 && textW>cellW){
-          const scale=Math.max(0.3, cellW/textW);
-          ct.style.setProperty('--chord-fit-x', scale.toFixed(4));
-        }
-      });
+      _fitChordsInScope(document);
       resolve();
     });
   });
+}
+// Recalcule la compression UNIQUEMENT sur la page donnée — appelé à chaque
+// fois qu'une page devient la page affichée (voir rdrShowPage), pour que
+// chaque page soit toujours traitée dans les mêmes conditions qu'un
+// morceau à une seule page (page visible au moment de la mesure).
+function applyFitChordsToPage(pageEl){
+  if(!pageEl) return;
+  requestAnimationFrame(()=>{ _fitChordsInScope(pageEl); });
 }
 let _ctxMenuOpen=false;
 
@@ -20864,6 +20882,7 @@ function rdrShowPage(idx){
   idx=Math.max(0,Math.min(idx,_rdrPages.length-1));
   _rdrPageIdx=idx;
   _rdrPages.forEach((p,i)=>{ p.style.display=i===idx?'block':'none'; });
+  applyFitChordsToPage(_rdrPages[idx]);
 }
 
 function rdrNextPage(){
