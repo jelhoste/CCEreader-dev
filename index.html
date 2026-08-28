@@ -4878,23 +4878,26 @@ function _syncMsoFitBtn(){
 
 function applyFitChords(){
   // Applique scaleX sur chaque chord-text qui dépasse son chord-cell
-  requestAnimationFrame(()=>{
-    document.querySelectorAll('.chord-cell').forEach(cell=>{
-      const mi=parseInt(cell.dataset.mi);
-      const m=!isNaN(mi)?state.measures[mi]:null;
-      // Résolution : override mesure > global
-      const fit=(m&&m.fitChords!=null)?m.fitChords:_fitChords;
-      const ct=cell.querySelector('.chord-text');
-      if(!ct) return;
-      // Reset d'abord pour mesurer la taille naturelle
-      ct.style.setProperty('--chord-fit-x','1');
-      if(!fit) return;
-      const cellW=cell.getBoundingClientRect().width;
-      const textW=ct.getBoundingClientRect().width;
-      if(cellW>0 && textW>cellW){
-        const scale=Math.max(0.3, cellW/textW);
-        ct.style.setProperty('--chord-fit-x', scale.toFixed(4));
-      }
+  return new Promise(resolve=>{
+    requestAnimationFrame(()=>{
+      document.querySelectorAll('.chord-cell').forEach(cell=>{
+        const mi=parseInt(cell.dataset.mi);
+        const m=!isNaN(mi)?state.measures[mi]:null;
+        // Résolution : override mesure > global
+        const fit=(m&&m.fitChords!=null)?m.fitChords:_fitChords;
+        const ct=cell.querySelector('.chord-text');
+        if(!ct) return;
+        // Reset d'abord pour mesurer la taille naturelle
+        ct.style.setProperty('--chord-fit-x','1');
+        if(!fit) return;
+        const cellW=cell.getBoundingClientRect().width;
+        const textW=ct.getBoundingClientRect().width;
+        if(cellW>0 && textW>cellW){
+          const scale=Math.max(0.3, cellW/textW);
+          ct.style.setProperty('--chord-fit-x', scale.toFixed(4));
+        }
+      });
+      resolve();
     });
   });
 }
@@ -17501,10 +17504,11 @@ function reflow(){
   syncToolbar();
   requestAnimationFrame(()=>{
     renderAllNotations();
-    applyFitChords();
-    if(_printMode) applyPrintScale();
-    // ── Mode Reader : passer en vue pleine page ──
-    rdrInitPages();
+    applyFitChords().then(()=>{
+      if(_printMode) applyPrintScale();
+      // ── Mode Reader : passer en vue pleine page ──
+      rdrInitPages();
+    });
   });
   if(entryMode && entryCursor){
     setTimeout(()=>{
