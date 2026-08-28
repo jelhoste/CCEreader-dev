@@ -21246,6 +21246,17 @@ applyQualOffset(-0.05);
 reflow();
 rdrApplyBodyClasses();
 rdrRenderRecents();
+// Le tout premier reflow() ci-dessus peut s'exécuter avant que les polices
+// personnalisées (Google Fonts) aient fini de télécharger — le texte est
+// alors mesuré avec une police de secours temporaire, ce qui donne des
+// largeurs de mesure légèrement fausses, jamais corrigées ensuite. C'est
+// ce qui causait un décalage variable (jamais au même endroit d'une fois
+// sur l'autre) par rapport à l'Éditeur pour un même morceau. On relance
+// donc un reflow correctif dès que les polices sont réellement prêtes —
+// sans effet visible si elles l'étaient déjà à ce moment-là.
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(()=>{ reflow(); });
+}
 </script>
 
 <!-- ══ MODALE CONFIRMATION ══════════════════════════════════ -->
