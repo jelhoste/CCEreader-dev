@@ -99,7 +99,7 @@
   --typo-title-family:'Fraunces',Georgia,serif;
   --typo-title-size:28px; --typo-title-weight:600;
   --typo-section-family:'JetBrains Mono',monospace;
-  --typo-section-size:15px;
+  --typo-section-size:13px;
   --typo-sym-size:20px;
   --typo-sym-weight:300;
 
@@ -462,7 +462,7 @@ body.rdr-topbar-visible #topbar{transform:translateY(0)}
 .ped-line{
   position:absolute;
   left:var(--ped-left,0%);right:var(--ped-right,0%);
-  bottom:var(--ov-offset-volta,4px);top:auto;
+  bottom:var(--ped-offset-y,4px);top:auto;
   height:var(--volta-bracket-h,14px);
   pointer-events:auto;cursor:pointer;
   z-index:3;
@@ -483,7 +483,7 @@ body.rdr-topbar-visible #topbar{transform:translateY(0)}
 .ped-line.pl-none::after{ display:none; }
 .ped-line-bracket{
   position:absolute;
-  bottom:var(--ov-offset-volta,4px);top:auto;
+  bottom:var(--ped-offset-y,4px);top:auto;
   width:0;
   height:calc(var(--volta-bracket-h,14px) * 0.5);
   border-right:var(--ped-w,var(--volta-w,2px)) solid var(--ped-c,#cc2200);
@@ -2431,7 +2431,7 @@ body.rdr-hide-scaleviewers .rdr-scale-viewer{display:none!important}
       <div class="fg"><label class="fl">Taille px</label>
         <div class="stepper">
           <button class="step-btn left" onclick="stepVal('ty-ss',-1,previewTypo)">−</button>
-          <input type="number" class="fi" id="ty-ss" value="20" min="4" max="48" step="1" oninput="previewTypo()">
+          <input type="number" class="fi" id="ty-ss" value="13" min="4" max="48" step="1" oninput="previewTypo()">
           <button class="step-btn right" onclick="stepVal('ty-ss',1,previewTypo)">+</button>
         </div></div>
       <div class="fg"><label class="fl">Symboles (coda…) px</label>
@@ -2711,9 +2711,9 @@ body.rdr-hide-scaleviewers .rdr-scale-viewer{display:none!important}
         <div class="fg"><label class="fl">3 acc.</label>
           <input type="number" class="fi" id="wf3" value="1.0" step="0.1" min="0.5" max="5" oninput="updateWidthFactor(3,this.value)"></div>
         <div class="fg"><label class="fl">4 acc.</label>
-          <input type="number" class="fi" id="wf4" value="2.8" step="0.1" min="0.5" max="6" oninput="updateWidthFactor(4,this.value)"></div>
+          <input type="number" class="fi" id="wf4" value="1.0" step="0.1" min="0.5" max="6" oninput="updateWidthFactor(4,this.value)"></div>
         <div class="fg"><label class="fl">5+</label>
-          <input type="number" class="fi" id="wf5" value="3.5" step="0.1" min="0.5" max="8" oninput="updateWidthFactor(5,this.value)"></div>
+          <input type="number" class="fi" id="wf5" value="1.0" step="0.1" min="0.5" max="8" oninput="updateWidthFactor(5,this.value)"></div>
       </div>
       <button class="mbtn sm" onclick="resetWidthFactors()" style="margin-top:.4rem">Réinitialiser facteurs</button>
     </div>
@@ -3760,7 +3760,7 @@ body.rdr-hide-scaleviewers .rdr-scale-viewer{display:none!important}
     <!-- Taille texte -->
     <span class="fl" style="margin:0 .2rem 0 .4rem">Texte</span>
     <button class="step-btn left" onclick="stepPedLineSize('text',-1)">−</button>
-    <span id="pl-text-size-val" style="font-family:var(--font-mono);font-size:.6rem;min-width:2rem;text-align:center;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);height:28px;display:inline-flex;align-items:center;justify-content:center;background:var(--ui2)">13</span>
+    <span id="pl-text-size-val" style="font-family:var(--font-mono);font-size:.6rem;min-width:2rem;text-align:center;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);height:28px;display:inline-flex;align-items:center;justify-content:center;background:var(--ui2)">20</span>
     <button class="step-btn right" onclick="stepPedLineSize('text',1)">+</button>
     <!-- Épaisseur ligne -->
     <span class="fl" style="margin:0 .2rem 0 .4rem">Ligne</span>
@@ -4221,7 +4221,7 @@ let sel=null, chordTarget=null, quickTarget=null;
 
 // Width settings
 let alignMode='uniform';
-let widthFactors={1:1.0, 2:1.0, 3:1.0, 4:2.8, 5:3.5};
+let widthFactors={1:1.0, 2:1.0, 3:1.0, 4:1.0, 5:1.0};
 
 // ════ UNDO / REDO ═════════════════════════════════════════
 const UNDO_MAX=50;
@@ -13372,7 +13372,7 @@ function renderTextCell(cell, m, measW){
   div.style.cssText=`width:100%;height:${h}px;box-sizing:border-box;
     padding:5px .6rem;
     font-family:${fontFamily};font-size:${fontSize}px;line-height:${lineH}px;
-    text-align:${align};color:var(--ink);white-space:pre-wrap;overflow:hidden;`;
+    text-align:${align};color:${n.color||'var(--ink)'};white-space:pre-wrap;overflow:hidden;`;
   div.innerHTML=n.text||'';
   cell.innerHTML=''; cell.appendChild(div);
 }
@@ -15925,7 +15925,7 @@ function updateWidthFactor(n,v){
   widthFactors[n]=parseFloat(v)||widthFactors[n]; reflow();
 }
 function resetWidthFactors(){
-  widthFactors={1:1.0,2:1.0,3:1.0,4:2.8,5:3.5};
+  widthFactors={1:1.0,2:1.0,3:1.0,4:1.0,5:1.0};
   [1,2,3,4,5].forEach(n=>{
     const el=document.getElementById('wf'+n);
     if(el) el.value=widthFactors[n];
@@ -16960,10 +16960,19 @@ function reflow(){
           const styleCls=pl.style==='dash-long'?' pl-dash-long':pl.style==='dash-short'?' pl-dash-short':pl.style==='none'?' pl-none':'';
           const vEl=document.createElement('div');
           vEl.className='ped-line'+styleCls;
-          const lw=(pl.lineW||2)+'px'; const ts=(pl.textSize||9)+'px';
-          // Utiliser top au lieu de bottom pour la compatibilité print
-          // Positionner via la cellule parente (comme --ov-offset-volta sur :root pour les voltas)
-          cell.style.setProperty('--ov-offset-volta', yOff+'px');
+          const lw=(pl.lineW||2)+'px'; const ts=(pl.textSize||20)+'px';
+          // Décalage propre à la ligne de pédale (variable dédiée, plus
+          // jamais partagée avec --ov-offset-volta) — si une volta occupe
+          // aussi cette mesure, on ajoute sa hauteur pour que la ligne de
+          // pédale se place toujours au-dessus d'elle, jamais dessus.
+          {
+            const cellHasVolta=m.volta||state.measures.slice(0,(_fbProxyRealIdx!=null?Math.min(idx,_fbProxyRealIdx):(idx))).some((pm,pi)=>
+              pm.volta&&(idx-pi)<(pm.volta.span||1)
+            );
+            const voltaBracketH2=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--volta-bracket-h'))||14;
+            const effYOff=cellHasVolta?yOff+voltaBracketH2:yOff;
+            cell.style.setProperty('--ped-offset-y', effYOff+'px');
+          }
           if(pl.color) cell.style.setProperty('--ped-c', pl.color);
           vEl.style.setProperty('--ped-left', xS+'%');
           vEl.style.setProperty('--ped-right', (span<=1?100-xE:0)+'%');
@@ -16990,7 +16999,14 @@ function reflow(){
             const vEl=document.createElement('div');
             vEl.className='ped-line'+styleCls;
             const lw2=(pl.lineW||2)+'px';
-            cell.style.setProperty('--ov-offset-volta', yOff+'px');
+            {
+              const cellHasVolta=m.volta||state.measures.slice(0,(_fbProxyRealIdx!=null?Math.min(idx,_fbProxyRealIdx):(idx))).some((pm2,pi2)=>
+                pm2.volta&&(idx-pi2)<(pm2.volta.span||1)
+              );
+              const voltaBracketH2=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--volta-bracket-h'))||14;
+              const effYOff=cellHasVolta?yOff+voltaBracketH2:yOff;
+              cell.style.setProperty('--ped-offset-y', effYOff+'px');
+            }
             if(pl.color) cell.style.setProperty('--ped-c', pl.color);
             vEl.style.setProperty('--ped-left', '0%');
             vEl.style.setProperty('--ped-right', (isLast?100-xE:0)+'%');
@@ -17150,8 +17166,8 @@ function reflow(){
           const c=m.spacerContent||{type:'text'};
           if(c.type==='text'&&c.text){
             const t=document.createElement('div');
-            t.style.cssText=`padding:4px 6px;font-family:${c.fontFamily||'var(--font-body)'};font-size:${c.fontSize||14}px;color:var(--ink);overflow:hidden;height:100%;display:flex;align-items:center;word-break:break-word;white-space:pre-wrap;`;
-            t.textContent=c.text;
+            t.style.cssText=`padding:4px 6px;font-family:${c.fontFamily||'var(--font-body)'};font-size:${c.fontSize||14}px;color:${c.color||'var(--ink)'};overflow:hidden;height:100%;display:flex;align-items:center;word-break:break-word;white-space:pre-wrap;`;
+            t.innerHTML=c.text;
             spEl.appendChild(t);
           } else if(c.type==='notation'){
             const svgWrap=document.createElement('div');
@@ -18299,8 +18315,8 @@ function renderFBItem(item, W, transparent=false, _fbCtx=null){
     const div=document.createElement('div');
     div.className='fb-item-text';
     div.style.cssText=`font-family:${fontFamily};font-size:${fontSize}px;line-height:${lineH}px;
-      text-align:${item.align||'left'};color:var(--ink);height:${h}px;overflow:hidden;`;
-    div.textContent=item.text||'';
+      text-align:${item.align||'left'};color:${item.color||'var(--ink)'};height:${h}px;overflow:hidden;`;
+    div.innerHTML=item.text||'';
     return div;
   } else if(item.type==='notation'){
     const _notT=item.notType||'treble';
@@ -18936,14 +18952,14 @@ function openPedLineModal(){
   closeAllPanels();
   if(sel===null) return;
   const m=state.measures[sel];
-  const pl=m.pedLine||{span:1,text:'',style:'solid',closeBracket:false,yOffset:4,xStart:0,xEnd:1,textSize:13,lineW:1};
+  const pl=m.pedLine||{span:1,text:'',style:'solid',closeBracket:false,yOffset:4,xStart:0,xEnd:1,textSize:20,lineW:1};
   document.getElementById('pl-text').value=pl.text||'';
   document.getElementById('pl-span').value=pl.span||1;
   const styleEl=document.querySelector(`input[name="pl-style"][value="${pl.style||'solid'}"]`);
   if(styleEl) styleEl.checked=true;
   document.getElementById('pl-bracket').checked=!!pl.closeBracket;
   document.getElementById('pl-y-val').textContent=(pl.yOffset||4)+'px';
-  document.getElementById('pl-text-size-val').textContent=(pl.textSize||9);
+  document.getElementById('pl-text-size-val').textContent=(pl.textSize||20);
   document.getElementById('pl-line-w-val').textContent=(pl.lineW||2);
   document.getElementById('pl-xs-val').textContent=Math.round((pl.xStart||0)*100)+'%';
   document.getElementById('pl-xe-val').textContent=Math.round((pl.xEnd||1)*100)+'%';
@@ -18962,7 +18978,7 @@ function savePedLine(){
     style:styleEl?styleEl.value:'solid',
     closeBracket:document.getElementById('pl-bracket')?.checked||false,
     yOffset:parseInt(document.getElementById('pl-y-val')?.textContent)||4,
-    textSize:parseInt(document.getElementById('pl-text-size-val')?.textContent)||9,
+    textSize:parseInt(document.getElementById('pl-text-size-val')?.textContent)||20,
     lineW:parseFloat(document.getElementById('pl-line-w-val')?.textContent)||2,
     xStart:parseFloat(document.getElementById('pl-xs-val')?.textContent)/100||0,
     xEnd:parseFloat(document.getElementById('pl-xe-val')?.textContent)/100||1,
@@ -19540,7 +19556,7 @@ function _restoreData(data){
     const mnd=document.getElementById('meas-num-start'); if(mnd) mnd.value='1';
     PAGE_PAD_MM=7; const ppd=document.getElementById('fmt-pad-mm'); if(ppd) ppd.value='7';
     alignMode='uniform'; const amd=document.getElementById('am-uniform'); if(amd) amd.checked=true;
-    widthFactors={1:1.0, 2:1.0, 3:1.0, 4:2.8, 5:3.5};
+    widthFactors={1:1.0, 2:1.0, 3:1.0, 4:1.0, 5:1.0};
     [1,2,3,4,5].forEach(n=>{const el=document.getElementById('wf'+n);if(el)el.value=widthFactors[n]});
   }
   if(data.typo){ const R=document.documentElement; Object.entries(data.typo).forEach(([k,v])=>{if(v)R.style.setProperty(k,v)}); }
